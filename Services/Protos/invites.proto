@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+option csharp_namespace = "Services.Protos";
+
+package invites.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service InviteService {
+  rpc CreateInvite (CreateInviteRequest) returns (CreateInviteReply);
+  rpc GetRedeemChallenge (GetRedeemChallengeRequest) returns (GetRedeemChallengeReply);
+  rpc RedeemInvite (RedeemInviteRequest) returns (RedeemInviteReply);
+  rpc RevokeInvite (RevokeInviteRequest) returns (RevokeInviteReply);
+}
+
+message CreateInviteRequest {}
+
+message CreateInviteReply {
+  string invite_id = 1;
+  string server_secret = 2;
+  string pin = 3;
+  string revoke_token = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message GetRedeemChallengeRequest {
+  string invite_id = 1;
+}
+
+message GetRedeemChallengeReply {
+  RedeemChallengeStatus status = 1;
+  string nonce = 2;
+  int32 difficulty = 3;
+  int32 attempts = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  google.protobuf.Timestamp locked_until = 6;
+}
+
+message RedeemInviteRequest {
+  string invite_id = 1;
+  string pin = 2;
+  string nonce = 3;
+  uint64 pow_solution = 4;
+}
+
+message RedeemInviteReply {
+  RedeemInviteStatus status = 1;
+  string server_secret = 2;
+  google.protobuf.Timestamp locked_until = 3;
+}
+
+message RevokeInviteRequest {
+  string invite_id = 1;
+  string revoke_token = 2;
+}
+
+message RevokeInviteReply {
+  RevokeInviteStatus status = 1;
+}
+
+enum RedeemChallengeStatus {
+  REDEEM_CHALLENGE_STATUS_UNSPECIFIED = 0;
+  REDEEM_CHALLENGE_STATUS_AVAILABLE = 1;
+  REDEEM_CHALLENGE_STATUS_NOT_FOUND = 2;
+  REDEEM_CHALLENGE_STATUS_EXPIRED = 3;
+  REDEEM_CHALLENGE_STATUS_USED = 4;
+  REDEEM_CHALLENGE_STATUS_LOCKED = 5;
+  REDEEM_CHALLENGE_STATUS_REVOKED = 6;
+}
+
+enum RedeemInviteStatus {
+  REDEEM_INVITE_STATUS_UNSPECIFIED = 0;
+  REDEEM_INVITE_STATUS_SUCCEEDED = 1;
+  REDEEM_INVITE_STATUS_NOT_FOUND = 2;
+  REDEEM_INVITE_STATUS_EXPIRED = 3;
+  REDEEM_INVITE_STATUS_USED = 4;
+  REDEEM_INVITE_STATUS_INVALID_PIN = 5;
+  REDEEM_INVITE_STATUS_LOCKED = 6;
+  REDEEM_INVITE_STATUS_REVOKED = 7;
+}
+
+enum RevokeInviteStatus {
+  REVOKE_INVITE_STATUS_UNSPECIFIED = 0;
+  REVOKE_INVITE_STATUS_SUCCEEDED = 1;
+  REVOKE_INVITE_STATUS_NOT_FOUND = 2;
+  REVOKE_INVITE_STATUS_USED = 3;
+  REVOKE_INVITE_STATUS_REVOKED = 4;
+}

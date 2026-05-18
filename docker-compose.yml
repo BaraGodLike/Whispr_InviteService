@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PROJECT: Migrator/Migrator.csproj
+    command: ["Migrator.dll"]
+    environment:
+      ConnectionStrings__Invites: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  services:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PROJECT: Services/Services.csproj
+    command: ["Services.dll"]
+    environment:
+      ASPNETCORE_URLS: http://+:${SERVICES_PORT}
+      ConnectionStrings__Invites: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Pow__SigningKeyBase64: ${POW_SIGNING_KEY_BASE64}
+      Encryption__KeyBase64: ${ENCRYPTION_KEY_BASE64}
+      Hashing__KeyBase64: ${HASHING_KEY_BASE64}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    ports:
+      - "${SERVICES_PORT}:${SERVICES_PORT}"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PROJECT: Worker/Worker.csproj
+    command: ["Worker.dll"]
+    environment:
+      ConnectionStrings__Invites: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    profiles:
+      - ops
+    restart: "no"
+
+volumes:
+  postgres-data:
