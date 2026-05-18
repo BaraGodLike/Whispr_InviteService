@@ -3,22 +3,18 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Services;
 
-public sealed class PostgresHealthCheck : IHealthCheck
+public sealed class PostgresHealthCheck(
+    PostgresConnectionFactory connectionFactory,
+    ILogger<PostgresHealthCheck> logger)
+    : IHealthCheck
 {
-    private readonly PostgresConnectionFactory _connectionFactory;
-
-    public PostgresHealthCheck(PostgresConnectionFactory connectionFactory)
-    {
-        _connectionFactory = connectionFactory;
-    }
-
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            await using var connection = _connectionFactory.CreateConnection();
+            await using var connection = connectionFactory.CreateConnection();
             await connection.OpenAsync(cancellationToken);
             await using var command = connection.CreateCommand();
             command.CommandText = "SELECT 1;";
@@ -28,6 +24,7 @@ public sealed class PostgresHealthCheck : IHealthCheck
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "PostgreSQL health check failed.");
             return HealthCheckResult.Unhealthy("PostgreSQL health check failed.", ex);
         }
     }

@@ -6,20 +6,16 @@ using Services.Protos;
 
 namespace Services;
 
-public sealed class InviteGrpcService : InviteService.InviteServiceBase
+public sealed class InviteGrpcService(
+    InviteApplicationService inviteApplicationService,
+    ILogger<InviteGrpcService> logger)
+    : InviteService.InviteServiceBase
 {
-    private readonly InviteApplicationService _inviteApplicationService;
-
-    public InviteGrpcService(InviteApplicationService inviteApplicationService)
-    {
-        _inviteApplicationService = inviteApplicationService;
-    }
-
     public override async Task<CreateInviteReply> CreateInvite(
         CreateInviteRequest request,
         ServerCallContext context)
     {
-        var result = await _inviteApplicationService.CreateInviteAsync(context.CancellationToken);
+        var result = await inviteApplicationService.CreateInviteAsync(context.CancellationToken);
 
         return new CreateInviteReply
         {
@@ -36,7 +32,7 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         ServerCallContext context)
     {
         var inviteId = ParseInviteId(request.InviteId);
-        var result = await _inviteApplicationService.GetRedeemChallengeAsync(
+        var result = await inviteApplicationService.GetRedeemChallengeAsync(
             inviteId,
             context.CancellationToken);
 
@@ -76,7 +72,7 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         try
         {
             var inviteId = ParseInviteId(request.InviteId);
-            var result = await _inviteApplicationService.RedeemInviteAsync(
+            var result = await inviteApplicationService.RedeemInviteAsync(
                 inviteId,
                 request.Pin,
                 request.Nonce,
@@ -102,10 +98,12 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         }
         catch (InvalidPowChallengeException ex)
         {
+            logger.LogWarning(ex, "Redeem request rejected because the proof-of-work challenge is invalid.");
             throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
         catch (InsufficientProofOfWorkException ex)
         {
+            logger.LogWarning(ex, "Redeem request rejected because the proof of work is insufficient.");
             throw new RpcException(new Status(StatusCode.ResourceExhausted, ex.Message));
         }
     }
@@ -118,7 +116,7 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         {
             var inviteId = ParseInviteId(request.InviteId);
             var revokeToken = ParseBase64(request.RevokeToken, "revoke_token");
-            var result = await _inviteApplicationService.RevokeInviteAsync(
+            var result = await inviteApplicationService.RevokeInviteAsync(
                 inviteId,
                 revokeToken,
                 context.CancellationToken);
@@ -130,21 +128,23 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         }
         catch (UnauthorizedAccessException ex)
         {
+            logger.LogWarning(ex, "Revoke request rejected because authorization failed.");
             throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message));
         }
     }
 
-    private static Guid ParseInviteId(string inviteId)
+    private Guid ParseInviteId(string inviteId)
     {
         if (!Guid.TryParse(inviteId, out var parsedInviteId))
         {
+            logger.LogWarning("Request rejected because invite_id is not a valid GUID.");
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invite_id must be a valid GUID."));
         }
 
         return parsedInviteId;
     }
 
-    private static byte[] ParseBase64(string value, string fieldName)
+    private byte[] ParseBase64(string value, string fieldName)
     {
         try
         {
@@ -152,6 +152,7 @@ public sealed class InviteGrpcService : InviteService.InviteServiceBase
         }
         catch (FormatException)
         {
+            logger.LogWarning("Request rejected because {FieldName} is not a valid Base64 string.", fieldName);
             throw new RpcException(
                 new Status(StatusCode.InvalidArgument, $"{fieldName} must be a valid Base64 string."));
         }
