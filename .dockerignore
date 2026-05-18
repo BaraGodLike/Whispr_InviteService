@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+.idea
+.vs
+.vscode
+
+**/bin
+**/obj
+**/TestResults
+**/artifacts
+**/coverage
