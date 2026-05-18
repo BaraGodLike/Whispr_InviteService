@@ -3,7 +3,6 @@ using Application.DependencyInjection;
 using Infrastructure.Security;
 using Infrastructure.Security.DependencyInjection;
 using Infrastructure.Storage.DependencyInjection;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Services;
 
@@ -25,14 +24,6 @@ var app = builder.Build();
 
 app.MapGrpcService<InviteGrpcService>();
 app.MapGrpcHealthChecksService();
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = registration => registration.Tags.Contains("live")
-});
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = registration => registration.Tags.Contains("ready")
-});
 app.MapGet("/", () => "Use a gRPC client to communicate with this service.");
 
 app.Run();
